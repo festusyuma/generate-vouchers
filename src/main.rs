@@ -70,7 +70,7 @@ fn main() {
             continue;
         }
 
-        file.write(format!("\"{}\", \"{}\"\n", pin, serial).as_bytes())
+        file.write(format!("{}, {}\n", pin, serial).as_bytes())
             .unwrap();
 
         vouchers_generated += 1;
