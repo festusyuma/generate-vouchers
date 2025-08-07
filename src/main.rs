@@ -57,7 +57,7 @@ fn main() {
             let mut generated;
 
             loop {
-                generated = Alphanumeric.sample_string(&mut rng, 5);
+                generated = Alphanumeric.sample_string(&mut rng, 9).to_uppercase();
                 if validate_voucher_pin(&generated) {
                     break;
                 }
