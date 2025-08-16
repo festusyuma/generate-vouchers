@@ -57,7 +57,23 @@ fn main() {
             let mut generated;
 
             loop {
-                generated = Alphanumeric.sample_string(&mut rng, 5).to_uppercase();
+                generated = String::new();
+
+                loop {
+                    let generated_char = Alphanumeric.sample_string(&mut rng, 1).to_uppercase();
+                    let generated_char = generated_char.as_str();
+
+                    if generated.contains(generated_char) {
+                        continue;
+                    }
+
+                    generated.push_str(generated_char);
+
+                    if generated.len() == 5 {
+                        break;
+                    }
+                }
+
                 if validate_voucher_pin(&generated) {
                     break;
                 }
