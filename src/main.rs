@@ -40,18 +40,6 @@ fn main() {
     file.write("pin, serial\n".as_bytes()).unwrap();
 
     loop {
-        if &vouchers_generated == no_of_vouchers {
-            break;
-        }
-
-        if &vouchers_generated % 1_000_000 == 0 {
-            println!(
-                "Generated {} vouchers at {}",
-                vouchers_generated,
-                offset::Local::now()
-            )
-        }
-
         let serial: String = (0..20).map(|_| rng.random_range('0'..'9')).collect();
         let pin = {
             let mut generated;
@@ -92,5 +80,17 @@ fn main() {
         vouchers_generated += 1;
         existing_pins.insert(pin);
         existing_serials.insert(serial);
+
+        if &vouchers_generated % 1_000_000 == 0 {
+            println!(
+                "Generated {} vouchers at {}",
+                vouchers_generated,
+                offset::Local::now()
+            )
+        }
+
+        if &vouchers_generated == no_of_vouchers {
+            break;
+        }
     }
 }
