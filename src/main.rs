@@ -5,6 +5,7 @@ use rand::Rng;
 use rand::distr::{Alphanumeric, SampleString};
 use std::collections::HashSet;
 use std::{env, fs, io::Write};
+use uuid::Uuid;
 
 fn validate_voucher_pin(pin: &str) -> bool {
     let mut has_char = false;
@@ -31,7 +32,7 @@ fn main() {
     dotenv().ok();
 
     let args: Vec<String> = env::args().collect();
-    let promo_id: &String = &args[1].parse().expect("promo id is required");
+    let promo_id: &Uuid = &args[1].parse().expect("promo id is required");
     let no_of_vouchers: &i32 = &args[2].clone().parse().expect("enter number of vouchers");
     let batch_size: &i32 = &args[3].clone().parse().expect("enter batch size");
     let output_file: &str = &args[4];
@@ -57,7 +58,7 @@ fn main() {
         .expect("Error preparing query");
 
     loop {
-        let items = db_client.query(&query, &[promo_id, &last_pin]).unwrap();
+        let items = db_client.query(&query, &[&promo_id, &last_pin]).unwrap();
 
         vouchers_loaded += items.len();
         last_pin = String::from("");
