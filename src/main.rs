@@ -1,6 +1,8 @@
 use chrono::offset;
 use dotenvy::dotenv;
+use openssl::ssl::{SslConnector, SslMethod};
 use postgres::{Client, NoTls};
+use postgres_openssl::MakeTlsConnector;
 use rand::Rng;
 use rand::distr::{Alphanumeric, SampleString};
 use std::collections::HashSet;
@@ -36,6 +38,7 @@ fn main() {
     let no_of_vouchers: &i32 = &args[2].clone().parse().expect("enter number of vouchers");
     let batch_size: &i32 = &args[3].clone().parse().expect("enter batch size");
     let output_file: &str = &args[4];
+    let cert_file = &args.get(5);
 
     let mut rng = rand::rng();
 
@@ -49,7 +52,17 @@ fn main() {
     let mut db_url = url::Url::parse(&db_url_str).expect("Failed to parse url");
     db_url.set_query(None);
 
-    let mut db_client = Client::connect(&db_url.to_string(), NoTls).unwrap();
+    let mut db_client = if let Some(cert_file) = cert_file {
+        let mut builder = SslConnector::builder(SslMethod::tls()).unwrap();
+        builder.set_ca_file(cert_file).unwrap();
+
+        let connector = MakeTlsConnector::new(builder.build());
+
+        Client::connect(&db_url.to_string(), connector).unwrap()
+    } else {
+        Client::connect(&db_url.to_string(), NoTls).unwrap()
+    };
+
     let mut last_pin: String = String::from("");
     let mut vouchers_loaded = 0;
 
