@@ -113,11 +113,12 @@ fn main() {
                         .last()
                         .expect("unable to generate character");
 
-                    if generated.len() > 0 {
-                        if generated.chars().last().unwrap() == generated_char {
-                            continue;
-                        }
-                    }
+                    /* Prevents same consecutive characters */
+                    // if generated.len() > 0 {
+                    //     if generated.chars().last().unwrap() == generated_char {
+                    //         continue;
+                    //     }
+                    // }
 
                     generated.push(generated_char);
 
