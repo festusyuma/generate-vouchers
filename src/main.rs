@@ -10,19 +10,8 @@ use std::{env, fs, io::Write};
 use uuid::Uuid;
 
 fn validate_voucher_pin(pin: &str) -> bool {
-    let mut has_char = false;
-    let mut has_digit = false;
-
     for c in pin.chars() {
-        if !has_char {
-            has_char = c.is_alphabetic()
-        }
-
-        if !has_digit {
-            has_digit = c.is_numeric()
-        }
-
-        if has_digit & has_char {
+        if c.is_alphabetic() {
             return true;
         }
     }
