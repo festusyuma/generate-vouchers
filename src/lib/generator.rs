@@ -80,7 +80,7 @@ impl<VS: VoucherStore, W: Writer> Generator<VS, W> {
                 let saved_vouchers = self.store.save(&mut vouchers.into_iter(), &mut self.writer);
 
                 vouchers = Vec::with_capacity(self.batch_size);
-                vouchers_generated += saved_vouchers - self.batch_size;
+                vouchers_generated = vouchers_generated + saved_vouchers - self.batch_size;
 
                 println!(
                     "[{}] Total generated: {}",
