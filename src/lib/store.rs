@@ -8,6 +8,6 @@ pub trait VoucherStore {
     fn save<T: Iterator<Item = Voucher>, TR: Writer>(
         &mut self,
         voucher: &mut T,
-        writer: Option<TR>,
-    );
+        writer: &mut TR,
+    ) -> usize;
 }

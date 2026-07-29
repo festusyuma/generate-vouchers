@@ -7,7 +7,6 @@ use generate_vouchers::voucher::Voucher;
 use generate_vouchers::writer::file::FileWriter;
 use rand::Rng;
 use rand::distr::{Alphanumeric, SampleString};
-use std::collections::HashSet;
 use std::env;
 use std::str::FromStr;
 
@@ -32,18 +31,15 @@ fn main() {
     let config = Config::new(args);
 
     let mut store = DbStore::init(&config);
-    let writer = FileWriter::new(&config);
+    let mut writer = FileWriter::new(&config);
 
-    let mut existing_pins = HashSet::new();
-    let mut existing_serials = HashSet::new();
     let mut vouchers_generated = 0;
     let mut rng = rand::rng();
 
+    let mut vouchers = Vec::with_capacity(config.batch_size);
+
     while vouchers_generated < config.no_of_vouchers {
         let serial: String = (0..20).map(|_| rng.random_range('0'..'9')).collect();
-        if existing_serials.contains(&serial) {
-            continue;
-        }
 
         let pin = {
             let mut generated;
@@ -81,38 +77,26 @@ fn main() {
             generated
         };
 
-        if existing_pins.contains(&pin) {
-            continue;
-        }
-
+        vouchers.push(Voucher::new(&pin, &serial));
         vouchers_generated += 1;
+
         if vouchers_generated != 0 && vouchers_generated % config.batch_size == 0 {
             println!(
-                "Generated {} vouchers at {}",
+                "[{}] Generated {} vouchers, attempting to save...",
+                offset::Local::now(),
+                config.batch_size,
+            );
+
+            let saved_vouchers = store.save(&mut vouchers.into_iter(), &mut writer);
+
+            vouchers = Vec::with_capacity(config.batch_size);
+            vouchers_generated += saved_vouchers - config.batch_size;
+
+            println!(
+                "[{}] Total generated: {}",
+                offset::Local::now(),
                 vouchers_generated,
-                offset::Local::now()
             );
         }
-
-        existing_pins.insert(pin);
-        existing_serials.insert(serial);
     }
-
-    let mut vouchers = {
-        let mut vouchers = vec![];
-        let mut existing_pins = existing_pins.iter();
-        let mut existing_serials = existing_serials.iter();
-
-        while let Some(pin) = existing_pins.next() {
-            if let Some(serial) = existing_serials.next() {
-                vouchers.push(Voucher::new(pin, serial));
-            } else {
-                break;
-            }
-        }
-
-        vouchers.into_iter()
-    };
-
-    store.save(&mut vouchers, Some(writer))
 }

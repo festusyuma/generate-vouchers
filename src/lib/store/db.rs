@@ -90,19 +90,18 @@ impl DbStore {
             }
         }
 
-        println!("inserted {} rows", vouchers.len());
-
         vouchers
     }
 
-    fn write<TR: Writer>(&mut self, batch: Vec<Voucher>, writer: Option<&mut TR>) {
+    fn write<TR: Writer>(&mut self, batch: Vec<Voucher>, writer: &mut TR) -> usize {
         let saved_vouchers = self.insert_many(batch);
+        let total_vouchers = saved_vouchers.len();
 
-        if let Some(w) = writer {
-            for voucher in saved_vouchers {
-                w.write(voucher);
-            }
+        for voucher in saved_vouchers {
+            writer.write(voucher);
         }
+
+        total_vouchers
     }
 }
 
@@ -110,13 +109,14 @@ impl VoucherStore for DbStore {
     fn save<T: Iterator<Item = Voucher>, TR: Writer>(
         &mut self,
         vouchers: &mut T,
-        mut writer: Option<TR>,
-    ) {
+        writer: &mut TR,
+    ) -> usize {
         let mut batch = Vec::new();
+        let mut saved_vouchers = 0;
 
         while let Some(voucher) = vouchers.next() {
             if batch.len() == self.config.batch_size {
-                self.write(batch, writer.as_mut());
+                saved_vouchers += self.write(batch, writer);
                 batch = Vec::new();
             }
 
@@ -124,7 +124,9 @@ impl VoucherStore for DbStore {
         }
 
         if !batch.is_empty() {
-            self.write(batch, writer.as_mut());
+            saved_vouchers += self.write(batch, writer);
         }
+
+        saved_vouchers
     }
 }
