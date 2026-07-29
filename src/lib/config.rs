@@ -4,6 +4,7 @@ use uuid::Uuid;
 #[derive(Default)]
 pub struct Config {
     pub group_id: Uuid,
+    pub pin_size: usize,
     pub no_of_vouchers: usize,
     pub initial_batch: usize,
     pub batch_size: usize,
@@ -24,6 +25,7 @@ impl Config {
         let args = &mut args;
 
         config.batch_size = 1_000_000;
+        config.pin_size = 5;
         config.initial_batch = 1;
         config.group_id = Uuid::new_v4();
 
@@ -41,6 +43,7 @@ impl Config {
                     config.initial_batch = unwrap_arg(args).unwrap_or(config.initial_batch)
                 }
                 "--output" | "-o" => config.output_file = unwrap_arg(args),
+                "--pin-size" => config.pin_size = unwrap_arg(args).unwrap_or(config.pin_size),
                 "--db-url" => config.db_url = unwrap_arg(args),
                 "--db-cert" => config.db_cert = unwrap_arg(args),
                 "--db-batch" => config.db_batch_size = unwrap_arg(args),
