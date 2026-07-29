@@ -19,14 +19,15 @@ impl FileWriter {
             .clone()
             .unwrap_or(config.group_id.to_string());
 
-        let mut current_file = fs::File::create(format!("{file_name}-1.csv")).unwrap();
+        let mut current_file =
+            fs::File::create(format!("{file_name}-{}.csv", config.initial_batch)).unwrap();
         current_file.write("pin, serial\n".as_bytes()).unwrap();
 
         FileWriter {
             file_name,
             current_file,
-            current_batch: 1,
             written: 0,
+            current_batch: config.initial_batch,
             batch_size: config.batch_size,
         }
     }

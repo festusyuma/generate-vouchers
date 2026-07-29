@@ -1,3 +1,4 @@
+use chrono::offset;
 use dotenvy::dotenv;
 use generate_vouchers::config::Config;
 use generate_vouchers::store::VoucherStore;
@@ -86,14 +87,16 @@ fn main() {
 
         vouchers_generated += 1;
         if vouchers_generated != 0 && vouchers_generated % config.batch_size == 0 {
-            println!("Generated {vouchers_generated} vouchers");
+            println!(
+                "Generated {} vouchers at {}",
+                vouchers_generated,
+                offset::Local::now()
+            );
         }
 
         existing_pins.insert(pin);
         existing_serials.insert(serial);
     }
-
-    println!("{}, {}", vouchers_generated, config.no_of_vouchers);
 
     let mut vouchers = {
         let mut vouchers = vec![];

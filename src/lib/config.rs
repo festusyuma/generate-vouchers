@@ -5,6 +5,7 @@ use uuid::Uuid;
 pub struct Config {
     pub group_id: Uuid,
     pub no_of_vouchers: usize,
+    pub initial_batch: usize,
     pub batch_size: usize,
     pub output_file: Option<String>,
 
@@ -23,6 +24,7 @@ impl Config {
         let args = &mut args;
 
         config.batch_size = 1_000_000;
+        config.initial_batch = 1;
         config.group_id = Uuid::new_v4();
 
         while let Some(arg) = args.next() {
@@ -34,6 +36,9 @@ impl Config {
                 }
                 "--batch" | "-b" => {
                     config.batch_size = unwrap_arg(args).unwrap_or(config.batch_size)
+                }
+                "--batch-start" => {
+                    config.initial_batch = unwrap_arg(args).unwrap_or(config.initial_batch)
                 }
                 "--output" | "-o" => config.output_file = unwrap_arg(args),
                 "--db-url" => config.db_url = unwrap_arg(args),
