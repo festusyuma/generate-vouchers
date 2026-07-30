@@ -20,12 +20,12 @@ fn unwrap_arg<Ta: Iterator<Item = String>, T: FromStr>(args: &mut Ta) -> Option<
 }
 
 impl Config {
-    pub fn new<T: Iterator<Item = String>>(mut args: T) -> Self {
+    pub fn from_args<T: Iterator<Item = String>>(mut args: T) -> Self {
         let mut config = Config::default();
         let args = &mut args;
 
         config.batch_size = 1_000_000;
-        config.pin_size = 5;
+        config.pin_size = 6;
         config.initial_batch = 1;
         config.group_id = Uuid::new_v4();
 

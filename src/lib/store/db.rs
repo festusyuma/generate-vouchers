@@ -1,7 +1,7 @@
 use crate::config::Config;
+use crate::logger::Logger;
 use crate::store::VoucherStore;
 use crate::voucher::Voucher;
-use crate::writer::Writer;
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres::Client;
 use postgres::NoTls;
@@ -72,7 +72,7 @@ impl DbStore {
             INSERT INTO public.vouchers (pin, serial, group_id)
             SELECT pin, serial, $3::uuid
             FROM UNNEST($1::text[], $2::text[]) AS v(pin, serial)
-            ON CONFLICT (group_id, serial) DO NOTHING
+            ON CONFLICT DO NOTHING
             RETURNING pin, serial;
         ";
 
@@ -93,12 +93,12 @@ impl DbStore {
         vouchers
     }
 
-    fn write<TR: Writer>(&mut self, batch: Vec<Voucher>, writer: &mut TR) -> usize {
+    fn write<TR: Logger>(&mut self, batch: Vec<Voucher>, logger: &mut TR) -> usize {
         let saved_vouchers = self.insert_many(batch);
         let total_vouchers = saved_vouchers.len();
 
         for voucher in saved_vouchers {
-            writer.write(voucher);
+            logger.log(voucher);
         }
 
         total_vouchers
@@ -106,17 +106,17 @@ impl DbStore {
 }
 
 impl VoucherStore for DbStore {
-    fn save<T: Iterator<Item = Voucher>, TR: Writer>(
+    fn save<T: Iterator<Item = Voucher>, TR: Logger>(
         &mut self,
         vouchers: &mut T,
-        writer: &mut TR,
+        logger: &mut TR,
     ) -> usize {
         let mut batch = Vec::new();
         let mut saved_vouchers = 0;
 
         while let Some(voucher) = vouchers.next() {
             if batch.len() == self.config.batch_size {
-                saved_vouchers += self.write(batch, writer);
+                saved_vouchers += self.write(batch, logger);
                 batch = Vec::new();
             }
 
@@ -124,7 +124,7 @@ impl VoucherStore for DbStore {
         }
 
         if !batch.is_empty() {
-            saved_vouchers += self.write(batch, writer);
+            saved_vouchers += self.write(batch, logger);
         }
 
         saved_vouchers

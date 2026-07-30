@@ -1,10 +1,10 @@
 use crate::config::Config;
+use crate::logger::Logger;
 use crate::voucher::Voucher;
-use crate::writer::Writer;
 use std::fs;
 use std::io::Write;
 
-pub struct FileWriter {
+pub struct FileLogger {
     file_name: String,
     current_file: fs::File,
     current_batch: usize,
@@ -12,8 +12,8 @@ pub struct FileWriter {
     batch_size: usize,
 }
 
-impl FileWriter {
-    pub fn new(config: &Config) -> FileWriter {
+impl FileLogger {
+    pub fn new(config: &Config) -> FileLogger {
         let file_name = config
             .output_file
             .clone()
@@ -23,7 +23,7 @@ impl FileWriter {
             fs::File::create(format!("{file_name}-{}.csv", config.initial_batch)).unwrap();
         current_file.write("pin, serial\n".as_bytes()).unwrap();
 
-        FileWriter {
+        FileLogger {
             file_name,
             current_file,
             written: 0,
@@ -33,8 +33,8 @@ impl FileWriter {
     }
 }
 
-impl Writer for FileWriter {
-    fn write(&mut self, voucher: Voucher) {
+impl Logger for FileLogger {
+    fn log(&mut self, voucher: Voucher) {
         if self.written == self.batch_size {
             self.written = 0;
             self.current_batch += 1;

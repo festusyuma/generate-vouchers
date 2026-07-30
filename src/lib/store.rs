@@ -1,13 +1,13 @@
 use crate::voucher::Voucher;
-use crate::writer::Writer;
+use crate::logger::Logger;
 
 pub mod db;
 pub mod memory;
 
 pub trait VoucherStore {
-    fn save<T: Iterator<Item = Voucher>, TR: Writer>(
+    fn save<T: Iterator<Item = Voucher>, TR: Logger>(
         &mut self,
         voucher: &mut T,
-        writer: &mut TR,
+        logger: &mut TR,
     ) -> usize;
 }

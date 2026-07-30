@@ -1,20 +1,23 @@
 use dotenvy::dotenv;
 use generate_vouchers::config::Config;
 use generate_vouchers::generator::Generator;
+use generate_vouchers::logger::file::FileLogger;
 use generate_vouchers::store::db::DbStore;
-use generate_vouchers::writer::file::FileWriter;
+use generate_vouchers::store::memory::MemoryStore;
 use std::env;
 
 fn main() {
     dotenv().ok();
 
     let args = env::args();
-    let config = Config::new(args);
+    let config = Config::from_args(args);
 
-    let store = DbStore::init(&config);
-    let writer = FileWriter::new(&config);
+    // stores
+    let mut db_store = DbStore::init(&config);
+    let mut memory_store = MemoryStore::init(&config);
 
-    let mut generator = Generator::new(&config, store, writer);
+    // logger
+    let mut logger = FileLogger::new(&config);
 
-    generator.generate(config.no_of_vouchers);
+    Generator::generate(&config, &mut db_store, &mut logger);
 }

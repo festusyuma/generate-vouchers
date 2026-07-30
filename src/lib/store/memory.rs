@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::store::VoucherStore;
 use crate::voucher::Voucher;
-use crate::writer::Writer;
+use crate::logger::Logger;
 use std::collections::HashSet;
 
 pub struct MemoryStore {
@@ -19,10 +19,10 @@ impl MemoryStore {
 }
 
 impl VoucherStore for MemoryStore {
-    fn save<T: Iterator<Item = Voucher>, TR: Writer>(
+    fn save<T: Iterator<Item = Voucher>, TR: Logger>(
         &mut self,
         vouchers: &mut T,
-        writer: &mut TR,
+        logger: &mut TR,
     ) -> usize {
         let mut saved_vouchers = 0;
 
@@ -36,7 +36,7 @@ impl VoucherStore for MemoryStore {
             saved_vouchers += 1;
             self.pins.insert(String::from(pin));
             self.serials.insert(String::from(serial));
-            writer.write(voucher);
+            logger.log(voucher);
         }
 
         saved_vouchers
