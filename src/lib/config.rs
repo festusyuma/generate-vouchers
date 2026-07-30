@@ -13,6 +13,7 @@ pub struct Config {
     pub db_batch_size: Option<usize>,
     pub db_url: Option<String>,
     pub db_cert: Option<String>,
+    pub db_group_col_name: String,
 }
 
 fn unwrap_arg<Ta: Iterator<Item = String>, T: FromStr>(args: &mut Ta) -> Option<T> {
@@ -28,6 +29,7 @@ impl Config {
         config.pin_size = 6;
         config.initial_batch = 1;
         config.group_id = Uuid::new_v4();
+        config.db_group_col_name = String::from("group_id");
 
         while let Some(arg) = args.next() {
             match arg.as_str() {
@@ -47,6 +49,9 @@ impl Config {
                 "--db-url" => config.db_url = unwrap_arg(args),
                 "--db-cert" => config.db_cert = unwrap_arg(args),
                 "--db-batch" => config.db_batch_size = unwrap_arg(args),
+                "--db-group-column" => {
+                    config.db_group_col_name = unwrap_arg(args).unwrap_or(config.db_group_col_name)
+                }
                 _ => (),
             }
         }

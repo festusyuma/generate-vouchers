@@ -45,15 +45,17 @@ impl DbConfig {
 
 pub struct DbStore {
     group: Uuid,
+    group_col_name: String,
     config: DbConfig,
 }
 
 impl DbStore {
     pub fn init(app_config: &Config) -> Self {
-        let config = DbConfig::new(app_config);
-        let group = app_config.group_id;
-
-        DbStore { group, config }
+        DbStore {
+            config: DbConfig::new(app_config),
+            group: app_config.group_id,
+            group_col_name: app_config.db_group_col_name.clone(),
+        }
     }
 
     fn insert_many(&mut self, vouchers: Vec<Voucher>) -> Vec<Voucher> {
@@ -68,14 +70,16 @@ impl DbStore {
             serials.push(serial);
         }
 
-        let query = "
-            INSERT INTO public.vouchers (pin, serial, group_id)
+        let query = format!(
+            "INSERT INTO public.vouchers (pin, serial, {group_col_name})
             SELECT pin, serial, $3::uuid
             FROM UNNEST($1::text[], $2::text[]) AS v(pin, serial)
             ON CONFLICT DO NOTHING
-            RETURNING pin, serial;
-        ";
+            RETURNING pin, serial;",
+            group_col_name = self.group_col_name
+        );
 
+        let query = query.as_str();
         let rows_affected = client.query(query, &[&pins, &serials, &self.group]);
 
         if let Err(e) = &rows_affected {
