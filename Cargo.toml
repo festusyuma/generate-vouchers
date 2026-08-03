@@ -4,5 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+postgres = { version = "0.19.10", features = ["with-uuid-1"] }
 rand = "0.9.0"
 chrono = "0.4.40"
+dotenvy = "0.15.7"
+url = "2.5.7"
+uuid = { version = "1.18.1", features = ["v4"] }
+openssl = { version = "0.10.73", features = ["vendored"] }
+postgres-openssl = "0.5.1"
+
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"
