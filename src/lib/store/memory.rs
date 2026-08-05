@@ -52,11 +52,13 @@ impl VoucherStore for MemoryStore {
 
         let stream = tokio::spawn(async move {
             let mut store = store.lock().await;
+            let mut attempts = 0;
 
             loop {
                 while let Some(action) = rx.recv().await {
                     match action {
                         StoreAction::Save(voucher) => {
+                            attempts += 1;
                             store.save(voucher);
                         }
                         StoreAction::Stop => {
@@ -65,7 +67,10 @@ impl VoucherStore for MemoryStore {
                     }
 
                     if store.saved_vouchers % store.batch_size == 0 {
-                        println!("loading: saved {} vouchers", store.saved_vouchers);
+                        println!(
+                            "loading: saved {} vouchers after {attempts} attempts",
+                            store.saved_vouchers,
+                        );
                     }
                 }
 
