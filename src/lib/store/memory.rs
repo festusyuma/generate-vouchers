@@ -1,6 +1,5 @@
 use crate::config::Config;
-use crate::generator::{Generator, GeneratorAction};
-use crate::logger::Logger;
+use crate::generator::GeneratorAction;
 use crate::store::{StoreAction, VoucherStore};
 use crate::voucher::Voucher;
 use std::collections::HashSet;
@@ -48,7 +47,7 @@ impl VoucherStore for MemoryStore {
         store: Arc<Mutex<Self>>,
         generator: mpsc::Sender<GeneratorAction>,
     ) -> (mpsc::Sender<StoreAction>, JoinHandle<()>) {
-        let (send, mut rx) = mpsc::channel(100);
+        let (send, mut rx) = mpsc::channel(1_000_000);
 
         let stream = tokio::spawn(async move {
             let mut store = store.lock().await;

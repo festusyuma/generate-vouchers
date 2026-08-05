@@ -1,5 +1,4 @@
 use crate::config::Config;
-use crate::logger::Logger;
 use crate::store::{StoreAction, VoucherStore};
 use crate::voucher::Voucher;
 use chrono::offset;
@@ -72,17 +71,18 @@ impl Generator {
 
         let (store_sender, store_stream) = T::start(store.clone(), send.clone());
         let no_of_vouchers = config.no_of_vouchers;
+        let pin_size = config.pin_size;
 
         println!("[{}] Generator started at", offset::Local::now());
 
         let stream = tokio::spawn(async move {
-            Generator::generate(no_of_vouchers, store_sender.clone()).await;
+            Generator::generate(no_of_vouchers, pin_size, store_sender.clone()).await;
             store_sender.clone().send(StoreAction::Stop).await.unwrap();
 
             while let Some(action) = rx.recv().await {
                 match action {
                     GeneratorAction::Generate(no_of_vouchers) => {
-                        Generator::generate(no_of_vouchers, store_sender.clone()).await;
+                        Generator::generate(no_of_vouchers, pin_size, store_sender.clone()).await;
                         store_sender.clone().send(StoreAction::Stop).await.unwrap();
                     }
                     GeneratorAction::Stop => {
@@ -101,7 +101,11 @@ impl Generator {
         combined
     }
 
-    pub async fn generate(total_vouchers: usize, sender: mpsc::Sender<StoreAction>) {
+    pub async fn generate(
+        total_vouchers: usize,
+        pin_size: usize,
+        sender: mpsc::Sender<StoreAction>,
+    ) {
         let mut rng = OsRng;
         let mut total_generated = 0;
 
@@ -112,7 +116,7 @@ impl Generator {
                 let mut generated;
 
                 loop {
-                    generated = generate_random(&mut rng, PIN_ALPHABET, 8);
+                    generated = generate_random(&mut rng, PIN_ALPHABET, pin_size);
 
                     if validate_voucher_pin(&generated) {
                         break;
@@ -137,58 +141,4 @@ impl Generator {
             }
         }
     }
-
-    // pub fn generate<VS: VoucherStore, W: Logger>(config: &Config, sender: mpsc::Sender<Voucher>) {
-    //     let mut rng = OsRng;
-    //     let mut vouchers_generated = 0;
-    //     let mut vouchers = Vec::with_capacity(config.batch_size);
-    //     let mut total_created = 0;
-    //
-    //     loop {
-    //         let serial = generate_random(&mut rng, SERIAL_ALPHABET, 20);
-    //
-    //         let pin = {
-    //             let mut generated;
-    //
-    //             loop {
-    //                 generated = generate_random(&mut rng, PIN_ALPHABET, config.pin_size);
-    //
-    //                 if validate_voucher_pin(&generated) {
-    //                     break;
-    //                 }
-    //             }
-    //
-    //             generated
-    //         };
-    //
-    //         vouchers.push(Voucher::new(&pin, &serial));
-    //         vouchers_generated += 1;
-    //
-    //         if vouchers_generated == (config.no_of_vouchers - total_created)
-    //             || (vouchers_generated != 0 && vouchers_generated % config.batch_size == 0)
-    //         {
-    //             println!(
-    //                 "[{}] Generated {} vouchers, attempting to save...",
-    //                 offset::Local::now(),
-    //                 vouchers_generated,
-    //             );
-    //
-    //             let saved_vouchers = store.save(&mut vouchers.into_iter(), logger);
-    //             total_created += saved_vouchers;
-    //
-    //             vouchers = Vec::with_capacity(config.batch_size);
-    //             vouchers_generated = 0;
-    //
-    //             println!(
-    //                 "[{}] Total generated: {}",
-    //                 offset::Local::now(),
-    //                 total_created,
-    //             );
-    //
-    //             if total_created == config.no_of_vouchers {
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
 }
