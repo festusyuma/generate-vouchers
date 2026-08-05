@@ -75,7 +75,6 @@ impl VoucherStore for MemoryStore {
                 }
 
                 let to_generate = store.total_vouchers - store.saved_vouchers;
-                println!("to_generate: {}", to_generate);
 
                 if to_generate != 0 {
                     let _ = generator.send(GeneratorAction::Generate(to_generate)).await;

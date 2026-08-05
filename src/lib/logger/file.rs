@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::logger::Logger;
 use crate::voucher::Voucher;
-use std::fmt::format;
 use std::fs;
 use std::io::Write;
 use tokio::sync::mpsc::{self, Sender};

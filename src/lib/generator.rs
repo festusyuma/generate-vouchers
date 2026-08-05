@@ -76,20 +76,16 @@ impl Generator {
         println!("[{}] Generator started at", offset::Local::now());
 
         let stream = tokio::spawn(async move {
-            println!("generator started {no_of_vouchers}");
             Generator::generate(no_of_vouchers, store_sender.clone()).await;
             store_sender.clone().send(StoreAction::Stop).await.unwrap();
 
             while let Some(action) = rx.recv().await {
-                println!("action received {:?}", action);
-
                 match action {
                     GeneratorAction::Generate(no_of_vouchers) => {
                         Generator::generate(no_of_vouchers, store_sender.clone()).await;
                         store_sender.clone().send(StoreAction::Stop).await.unwrap();
                     }
                     GeneratorAction::Stop => {
-                        println!("channel closed");
                         break;
                     }
                 }
