@@ -2,22 +2,28 @@ use dotenvy::dotenv;
 use generate_vouchers::config::Config;
 use generate_vouchers::generator::Generator;
 use generate_vouchers::logger::file::FileLogger;
-use generate_vouchers::store::db::DbStore;
+// use generate_vouchers::store::db::DbStore;
 use generate_vouchers::store::memory::MemoryStore;
 use std::env;
+use std::error::Error;
+use tokio::join;
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
 
     let args = env::args();
     let config = Config::from_args(args);
 
-    // stores
-    let mut db_store = DbStore::init(&config);
-    let mut memory_store = MemoryStore::init(&config);
+    let (logger, logger_stream) = FileLogger::new(&config);
 
-    // logger
-    let mut logger = FileLogger::new(&config);
+    // let mut _db_store = DbStore::init(&config);
+    let memory_store = MemoryStore::new(&config);
+    let generator_stream = Generator::new(&config, memory_store);
 
-    Generator::generate(&config, &mut db_store, &mut logger);
+    drop(logger);
+
+    let _ = join!(logger_stream, generator_stream);
+
+    Ok(())
 }

@@ -101,36 +101,34 @@ impl DbStore {
         let saved_vouchers = self.insert_many(batch);
         let total_vouchers = saved_vouchers.len();
 
-        for voucher in saved_vouchers {
-            logger.log(voucher);
-        }
+        logger.log_all(saved_vouchers);
 
         total_vouchers
     }
 }
 
-impl VoucherStore for DbStore {
-    fn save<T: Iterator<Item = Voucher>, TR: Logger>(
-        &mut self,
-        vouchers: &mut T,
-        logger: &mut TR,
-    ) -> usize {
-        let mut batch = Vec::new();
-        let mut saved_vouchers = 0;
-
-        while let Some(voucher) = vouchers.next() {
-            if batch.len() == self.config.batch_size {
-                saved_vouchers += self.write(batch, logger);
-                batch = Vec::new();
-            }
-
-            batch.push(voucher);
-        }
-
-        if !batch.is_empty() {
-            saved_vouchers += self.write(batch, logger);
-        }
-
-        saved_vouchers
-    }
-}
+// impl VoucherStore for DbStore {
+//     fn save<T: Iterator<Item = Voucher>, TR: Logger>(
+//         &mut self,
+//         vouchers: &mut T,
+//         logger: &mut TR,
+//     ) -> usize {
+//         let mut batch = Vec::new();
+//         let mut saved_vouchers = 0;
+//
+//         while let Some(voucher) = vouchers.next() {
+//             if batch.len() == self.config.batch_size {
+//                 saved_vouchers += self.write(batch, logger);
+//                 batch = Vec::new();
+//             }
+//
+//             batch.push(voucher);
+//         }
+//
+//         if !batch.is_empty() {
+//             saved_vouchers += self.write(batch, logger);
+//         }
+//
+//         saved_vouchers
+//     }
+// }

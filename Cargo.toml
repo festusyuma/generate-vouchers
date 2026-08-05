@@ -12,6 +12,9 @@ url = "2.5.7"
 uuid = { version = "1.18.1", features = ["v4"] }
 openssl = { version = "0.10.73", features = ["vendored"] }
 postgres-openssl = "0.5.1"
+tokio = { version = "1.53.1", features = ["full"] }
+tokio-openssl = "0.6.5"
+tokio-postgres = "0.7.18"
 
 [target.x86_64-unknown-linux-musl]
 linker = "x86_64-linux-musl-gcc"
