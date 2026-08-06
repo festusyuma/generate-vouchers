@@ -2,7 +2,7 @@ use dotenvy::dotenv;
 use generate_vouchers::config::Config;
 use generate_vouchers::generator::Generator;
 use generate_vouchers::logger::file::FileLogger;
-// use generate_vouchers::store::db::DbStore;
+use generate_vouchers::store::db::DbStore;
 use generate_vouchers::store::memory::MemoryStore;
 use std::env;
 use std::error::Error;
@@ -17,9 +17,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let (logger, logger_stream) = FileLogger::new(&config);
 
-    // let mut _db_store = DbStore::init(&config);
-    let memory_store = MemoryStore::new(&config);
-    let generator_stream = Generator::new(&config, memory_store);
+    let _db_store = DbStore::new(&config).await;
+    let _memory_store = MemoryStore::new(&config);
+
+    let generator_stream = Generator::start(&config, _db_store);
 
     drop(logger);
 

@@ -1,12 +1,16 @@
 use crate::config::Config;
+use crate::generator::GeneratorAction;
 use crate::logger::Logger;
-use crate::store::VoucherStore;
+use crate::store::{StoreAction, VoucherStore};
 use crate::voucher::Voucher;
 use openssl::ssl::{SslConnector, SslMethod};
-use postgres::Client;
 use postgres::NoTls;
 use postgres_openssl::MakeTlsConnector;
 use std::env;
+use std::sync::Arc;
+use tokio::sync::{Mutex, mpsc};
+use tokio::task::JoinHandle;
+use tokio_postgres::{Client, connect};
 use uuid::Uuid;
 
 struct DbConfig {
@@ -15,29 +19,39 @@ struct DbConfig {
 }
 
 impl DbConfig {
-    fn new(config: &Config) -> Self {
+    async fn new(config: &Config) -> Self {
         // Set variable from either the env variable or config
         let db_url = env::var("DATABASE_URL");
         let db_url = db_url
             .as_deref()
-            .unwrap_or(config.db_url.as_deref().expect("database url not set"));
+            .unwrap_or_else(|_| config.db_url.as_deref().expect("database url not set"));
 
-        let mut db_url = url::Url::parse(db_url).expect("Failed to parse url");
-        db_url.set_query(None);
+        let db_url = url::Url::parse(db_url).expect("Failed to parse url");
+        let batch_size = config.db_batch_size.unwrap_or(10000);
 
-        let client = if let Some(cert_file) = &config.db_cert {
+        if let Some(cert_file) = &config.db_cert {
             let mut builder = SslConnector::builder(SslMethod::tls()).unwrap();
-
             builder.set_ca_file(cert_file).unwrap();
 
             let connector = MakeTlsConnector::new(builder.build());
+            let (client, connection) = connect(&db_url.to_string(), connector).await.unwrap();
 
-            Client::connect(&db_url.to_string(), connector).unwrap()
-        } else {
-            Client::connect(&db_url.to_string(), NoTls).unwrap()
-        };
+            tokio::spawn(async move {
+                if let Err(e) = connection.await {
+                    eprintln!("connection error: {}", e);
+                }
+            });
 
-        let batch_size = config.db_batch_size.unwrap_or(10000);
+            return DbConfig { client, batch_size };
+        }
+
+        let (client, connection) = connect(&db_url.to_string(), NoTls).await.unwrap();
+
+        tokio::spawn(async move {
+            if let Err(e) = connection.await {
+                eprintln!("connection error: {}", e);
+            }
+        });
 
         DbConfig { client, batch_size }
     }
@@ -46,20 +60,24 @@ impl DbConfig {
 pub struct DbStore {
     group: Uuid,
     group_col_name: String,
-    config: DbConfig,
+    db: DbConfig,
+    total_vouchers: usize,
+    saved_vouchers: usize,
 }
 
 impl DbStore {
-    pub fn init(app_config: &Config) -> Self {
+    pub async fn new(app_config: &Config) -> Self {
         DbStore {
-            config: DbConfig::new(app_config),
+            db: DbConfig::new(app_config).await,
             group: app_config.group_id,
             group_col_name: app_config.db_group_col_name.clone(),
+            total_vouchers: app_config.no_of_vouchers,
+            saved_vouchers: 0,
         }
     }
 
-    fn insert_many(&mut self, vouchers: Vec<Voucher>) -> Vec<Voucher> {
-        let client = &mut self.config.client;
+    async fn insert_many(&mut self, vouchers: Vec<Voucher>) -> Vec<Voucher> {
+        let client = &mut self.db.client;
         let mut pins = Vec::new();
         let mut serials = Vec::new();
 
@@ -80,10 +98,10 @@ impl DbStore {
         );
 
         let query = query.as_str();
-        let rows_affected = client.query(query, &[&pins, &serials, &self.group]);
+        let rows_affected = client.query(query, &[&pins, &serials, &self.group]).await;
 
         if let Err(e) = &rows_affected {
-            println!("{:?}", e)
+            println!("query error: {:?}", e)
         }
 
         let mut vouchers = Vec::new();
@@ -97,38 +115,81 @@ impl DbStore {
         vouchers
     }
 
-    fn write<TR: Logger>(&mut self, batch: Vec<Voucher>, logger: &mut TR) -> usize {
-        let saved_vouchers = self.insert_many(batch);
+    async fn write(&mut self, batch: Vec<Voucher>) {
+        let saved_vouchers = self.insert_many(batch).await;
         let total_vouchers = saved_vouchers.len();
 
-        logger.log_all(saved_vouchers);
-
-        total_vouchers
+        self.saved_vouchers += total_vouchers;
     }
 }
 
-// impl VoucherStore for DbStore {
-//     fn save<T: Iterator<Item = Voucher>, TR: Logger>(
-//         &mut self,
-//         vouchers: &mut T,
-//         logger: &mut TR,
-//     ) -> usize {
-//         let mut batch = Vec::new();
-//         let mut saved_vouchers = 0;
-//
-//         while let Some(voucher) = vouchers.next() {
-//             if batch.len() == self.config.batch_size {
-//                 saved_vouchers += self.write(batch, logger);
-//                 batch = Vec::new();
-//             }
-//
-//             batch.push(voucher);
-//         }
-//
-//         if !batch.is_empty() {
-//             saved_vouchers += self.write(batch, logger);
-//         }
-//
-//         saved_vouchers
-//     }
-// }
+impl VoucherStore for DbStore {
+    fn start(
+        store: Arc<Mutex<Self>>,
+        generator: mpsc::Sender<GeneratorAction>,
+    ) -> (mpsc::Sender<StoreAction>, JoinHandle<()>) {
+        let (send, mut rx) = mpsc::channel(1_000_000);
+
+        let stream = tokio::spawn(async move {
+            let db_batch_size = store.lock().await.db.batch_size;
+            let total_vouchers = store.lock().await.total_vouchers;
+
+            let mut vouchers = vec![];
+
+            loop {
+                let mut save_voucher_futures = vec![];
+
+                while let Some(action) = rx.recv().await {
+                    match action {
+                        StoreAction::Save(voucher) => {
+                            vouchers.push(voucher);
+                        }
+                        StoreAction::Stop => {
+                            break;
+                        }
+                    }
+
+                    if vouchers.len() >= db_batch_size {
+                        let save_store = store.clone();
+                        save_voucher_futures.push(tokio::spawn(async move {
+                            save_store.lock().await.write(vouchers).await;
+                        }));
+
+                        vouchers = vec![];
+                    }
+                }
+
+                // ensure all promises are resolved
+                for save_voucher_future in save_voucher_futures {
+                    save_voucher_future.await.unwrap();
+                }
+
+                let saved_vouchers = store.lock().await.saved_vouchers;
+
+                println!(
+                    "saved {} vouchers, total: {}",
+                    saved_vouchers, total_vouchers
+                );
+
+                let to_generate = total_vouchers - saved_vouchers;
+
+                if to_generate != 0 {
+                    let _ = generator.send(GeneratorAction::Generate(to_generate)).await;
+                    continue;
+                }
+
+                println!("completed: saved {} vouchers", saved_vouchers);
+                break;
+            }
+
+            // if vouchers.len() > 0 {
+            //     let save_store = store.clone();
+            //     save_voucher_futures.push(tokio::spawn(async move {
+            //         save_store.lock().await.write(vouchers).await;
+            //     }));
+            // }
+        });
+
+        (send, stream)
+    }
+}

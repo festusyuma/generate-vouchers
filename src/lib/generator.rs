@@ -65,7 +65,7 @@ fn generate_random(rng: &mut OsRng, chars: &[u8], size: usize) -> String {
 }
 
 impl Generator {
-    pub fn new<T: VoucherStore>(config: &Config, store: T) -> JoinHandle<()> {
+    pub fn start<T: VoucherStore>(config: &Config, store: T) -> JoinHandle<()> {
         let (send, mut rx) = mpsc::channel(5);
         let store = Arc::new(Mutex::new(store));
 
