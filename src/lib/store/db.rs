@@ -134,9 +134,8 @@ impl VoucherStore for DbStore {
             let db_batch_size = store.lock().await.db.batch_size;
             let total_vouchers = store.lock().await.total_vouchers;
 
-            let mut vouchers = vec![];
-
             loop {
+                let mut vouchers = vec![];
                 let mut save_voucher_futures = vec![];
 
                 while let Some(action) = rx.recv().await {
@@ -157,6 +156,13 @@ impl VoucherStore for DbStore {
 
                         vouchers = vec![];
                     }
+                }
+
+                if vouchers.len() > 0 {
+                    let save_store = store.clone();
+                    save_voucher_futures.push(tokio::spawn(async move {
+                        save_store.lock().await.write(vouchers).await;
+                    }));
                 }
 
                 // ensure all promises are resolved
@@ -181,13 +187,6 @@ impl VoucherStore for DbStore {
                 println!("completed: saved {} vouchers", saved_vouchers);
                 break;
             }
-
-            // if vouchers.len() > 0 {
-            //     let save_store = store.clone();
-            //     save_voucher_futures.push(tokio::spawn(async move {
-            //         save_store.lock().await.write(vouchers).await;
-            //     }));
-            // }
         });
 
         (send, stream)
