@@ -171,12 +171,6 @@ impl VoucherStore for DbStore {
                 }
 
                 let saved_vouchers = store.lock().await.saved_vouchers;
-
-                println!(
-                    "saved {} vouchers, total: {}",
-                    saved_vouchers, total_vouchers
-                );
-
                 let to_generate = total_vouchers - saved_vouchers;
 
                 if to_generate != 0 {
