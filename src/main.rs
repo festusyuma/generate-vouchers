@@ -5,19 +5,26 @@ use generate_vouchers::logger::file::FileLogger;
 use generate_vouchers::store::db::DbStore;
 use generate_vouchers::store::memory::MemoryStore;
 use std::env;
+use std::error::Error;
+use tokio::join;
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
 
     let args = env::args();
     let config = Config::from_args(args);
 
-    // stores
-    let mut db_store = DbStore::init(&config);
-    let mut memory_store = MemoryStore::init(&config);
+    let (logger, logger_stream) = FileLogger::new(&config);
 
-    // logger
-    let mut logger = FileLogger::new(&config);
+    let _db_store = DbStore::new(&config).await;
+    let _memory_store = MemoryStore::new(&config);
 
-    Generator::generate(&config, &mut db_store, &mut logger);
+    let generator_stream = Generator::start(&config, _db_store);
+
+    drop(logger);
+
+    let _ = join!(logger_stream, generator_stream);
+
+    Ok(())
 }

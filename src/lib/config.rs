@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Config {
     pub group_id: Uuid,
     pub pin_size: usize,
@@ -26,6 +26,7 @@ impl Config {
         let args = &mut args;
 
         config.batch_size = 1_000_000;
+        config.no_of_vouchers = 1;
         config.pin_size = 6;
         config.initial_batch = 1;
         config.group_id = Uuid::new_v4();
@@ -35,8 +36,7 @@ impl Config {
             match arg.as_str() {
                 "--group" | "-g" => config.group_id = unwrap_arg(args).unwrap_or(Uuid::new_v4()),
                 "--vouchers" | "-v" => {
-                    config.no_of_vouchers =
-                        unwrap_arg(args).expect("no of vouchers is required (e.g -v 100)")
+                    config.no_of_vouchers = unwrap_arg(args).unwrap_or(config.no_of_vouchers)
                 }
                 "--batch" | "-b" => {
                     config.batch_size = unwrap_arg(args).unwrap_or(config.batch_size)
